@@ -19,10 +19,11 @@ def extractdata(f):
     data = []
     
     boardID_list = f.board_ids
+    boardID = boardID_list[0]
     totalBoards = len(boardID_list)
     boardID = boardID_list[0]
 
-    boardCH = f.channels[3059]
+    boardCH = f.channels[boardID]
     print("You have connected ", totalBoards, "Board(s) with Channel(s)", boardCH )
    
     for x in range(len(boardCH)):
@@ -66,7 +67,7 @@ def gethist(maxima, bins):
 
 def histogram(maxima, bins, title):
     plt.title(title)
-    plt.xlabel("Energie")
+    plt.xlabel("Channel")
     plt.ylabel("Counts")
     plt.hist(maxima[::-1],bins=bins)
     
