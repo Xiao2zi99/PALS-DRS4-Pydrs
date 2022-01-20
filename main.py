@@ -56,23 +56,43 @@ def maxvalue(data):
         maxima.append(minvalue)
     return maxima
 ####################################
-def scaleaxis():
+def scaleaxis(): #Probeweise!!!
     
     return 0
 ###################################
-def gethist(maxima, bins):
+def gethist(maxima, bins): 
     hist_arr = np.histogram(maxima, bins=bins)
     return hist_arr
 
-def plothistogram(maxima, bins, title):
+def histogram(maxima, bins, title):
     plt.title(title)
     plt.xlabel("Energie")
     plt.ylabel("Counts")
     plt.hist(maxima[::-1],bins=bins)
+    
+    ax = plt.gca()
+    p = ax.patches
+    energy = [patch.get_xy() for patch in p]
+    counts = [patch.get_height() for patch in p]    
+    hist_data = {"energy": energy, "counts": counts}
+    
     plt.yscale('log')
     plt.show()
-    return 0
 
+
+    return hist_data
+def peakposition(x):
+    peaks, _ = find_peaks(x, prominence=10)
+    
+    plt.plot(peaks, x[peaks], "xr"); plt.plot(x)
+    plt.yscale('log')
+    plt.show()
+    return peaks
+
+
+######################################################################################################################################################################################
+######################################################################################################################################################################################
+######################################################################################################################################################################################
 
 filepath = 'C:/Users/admin/Desktop/pydrs4/tests/2channels.bin'
 
@@ -94,15 +114,23 @@ tempdata_list2.tolist()
 maxima1 = maxvalue(tempdata_list1)
 maxima2 = maxvalue(tempdata_list2)
 
-plothistogram(maxima1, 150, 'CeBr3 Channel 1')
-plothistogram(maxima2, 150, 'CeBr3 Channel 2')
+hist_data1 = histogram(maxima1, 230, 'CeBr3 Channel 1')
+histogram(maxima2, 230, 'CeBr3 Channel 2')
+
+x = hist_data1['counts']
+x = np.asarray(x)
+peaks = peakposition(x)
+
+# peaks = find_peaks(x, prominence=1)
+# plt.plot(peaks, x[peaks], "xr"); plt.plot(x)
+
 
 #plt.plot(tempdata_list[107]) #zeigt den 108. Messwert an
 #plt.show()   
 
 
 
-# plothistogram(maxima, bins, title)
+# histogram(maxima, bins, title)
 # histogram = gethist(maxima, 150)
 # hist_counts = histogram[0]
 # hist_bins = histogram[1]
