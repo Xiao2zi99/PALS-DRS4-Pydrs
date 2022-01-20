@@ -1,28 +1,13 @@
-# pydrs4
+# pydrs4 application
 
-Python package for the drs4 evaluation board
+This script uses the Python package for the drs4 evaluation board by Astroparticle Physics TU Dortmund @tudo-astroparticlephysics to read and extractd Data from the DRS4 Board.
+
 
 
 ### Reading binary files of the drs4 evaluation board software
 
-Each event contains a dictinory `adc_data`, mapping to the data like this:
-board_id → channel_id → data.
+This script only works for the use of a single board. 
 
-to the adc data of the corresponding channel.
-```python
-import matplotlib.pyplot as plt
-from drs4 import DRS4BinaryFile
+Choose the file you want to read and enter its filepath in line 98 of the main.py script
 
-with DRS4BinaryFile('path/to/binaryfile') as f:
-    
-    print(f.board_ids)
-    print(f.channels)
 
-    event = next(f)
-    print(event.event_id)
-    print(event.timestamp)
-
-    plt.plot(event.adc_data[1157][1])
-    plt.show()
-  
-```
