@@ -10,6 +10,10 @@ from drs4 import DRS4BinaryFile
 import numpy as np
 from scipy.signal import find_peaks
 
+def getfilepath(path):
+    filepath = path
+    return filepath
+
 
 def extractdata(f):    
     i = 1
@@ -57,17 +61,22 @@ def maxvalue(data):
         maxima.append(minvalue)
     return maxima
 ####################################
-def scaleaxis(): #Probeweise!!!
-    
-    return 0
+def scaleaxis(x): #Probeweise!!!
+    channel = x
+    maxenergy = []
+    for i in range(len(channel)):
+        
+        energy = (434/7563)* channel[i] - 5501.59
+        maxenergy.append(energy)
+    return maxenergy
 ###################################
 def gethist(maxima, bins): 
     hist_arr = np.histogram(maxima, bins=bins)
     return hist_arr
 
-def histogram(maxima, bins, title):
+def histogram(maxima, bins, title, xtitle):
     plt.title(title)
-    plt.xlabel("Channel")
+    plt.xlabel(xtitle)
     plt.ylabel("Counts")
     plt.hist(maxima[::-1],bins=bins)
     
@@ -112,11 +121,19 @@ tempdata_list1 = -np.array(tempdata_list1)+2*baseline
 tempdata_list2 = -np.array(tempdata_list2)+2*baseline
 tempdata_list1.tolist()
 tempdata_list2.tolist()
-maxima1 = maxvalue(tempdata_list1)
+
+maxcounts1 = maxvalue(tempdata_list1)
+maxenergy = scaleaxis(maxcounts1)
+
+
 maxima2 = maxvalue(tempdata_list2)
 
-hist_data1 = histogram(maxima1, 230, 'CeBr3 Channel 1')
-histogram(maxima2, 230, 'CeBr3 Channel 2')
+hist_data1 = histogram(maxcounts1, 230, 'CeBr3 Channel 1', 'channel')
+hist_data1 = histogram(maxenergy, 230, 'CeBr3 Channel 1', 'Energy [keV]')
+
+histogram(maxima2, 230, 'CeBr3 Channel 2', 'Channel')
+
+energie = hist_data1['energy']
 
 x = hist_data1['counts']
 x = np.asarray(x)
