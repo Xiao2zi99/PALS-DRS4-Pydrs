@@ -11,6 +11,7 @@ import numpy as np
 from scipy.signal import find_peaks
 import sys
 import os
+import json
 
 def extractdata(f, channel_list):    
     i = 1
@@ -28,7 +29,7 @@ def extractdata(f, channel_list):
     
     while i == 1:         
         event = next(f, "stop")
-        print(event)
+        #print(event)
         #print(channel)
         if event == "stop":
             break
@@ -96,9 +97,6 @@ def scaleaxis(x): #Probeweise!!!
         maxenergy.append(energy)
     return maxenergy
 ###################################
-def gethist(maxima, bins): 
-    hist_arr = np.histogram(maxima, bins=bins)
-    return hist_arr
 
 def histogram(maxima, bins, title, xtitle):
     plt.title(title)
@@ -151,7 +149,29 @@ def peakposition(x):
     plt.show()
     return peaks
 
-
+def save_data(data):
+    save_path = input("Enter the path of the save folder: ")
+    fname = input("enter the file name: ")
+    fname = fname + ".txt"
+    complete_path = os.path.join(save_path, fname)
+    
+    ch1 = data['ch1']
+    ch2 = data['ch2']
+    ch3 = data['ch3']
+    ch4 = data['ch4']
+    
+    ch1 = json.dumps(ch1)
+    ch2 = json.dumps(ch2)
+    ch3 = json.dumps(ch3)
+    ch4 = json.dumps(ch4)
+    
+    f = open(complete_path, "w+")
+    f.write(ch1)
+    f.write(ch2)
+    f.write(ch3)
+    f.write(ch4)
+    
+    f.close()
 ######################################################################################################################################################################################
 ######################################################################################################################################################################################
 ######################################################################################################################################################################################
@@ -160,7 +180,8 @@ def peakposition(x):
 # filename = input("Enter the name of the file (with .bin): ")
 
 # filepath = "{}{}{}".format(dir_input, os.sep, filename)
-#filepath = os.sep.join([dir_input, filename])
+# filepath = os.sep.join([dir_input, filename])
+
 filepath = 'C:/Users/admin/Desktop/pydrs4/tests/2ch100k.bin'
 print(filepath)
 
@@ -214,10 +235,13 @@ with DRS4BinaryFile(filepath) as f:
                 
                 if save == 'no':
                     hist_data = histogram(maxcounts, bins, title, 'channel')
+                    
+                elif save == 'yes':
+                    hist_data = savehistogram(maxcounts, bins, title, 'channel')
             
             elif command == 'save_data':
                 print('you chose save_data')
-
+                save_data(data)
                 
             elif command == 'finish':
                 print('the program will be closed')   
