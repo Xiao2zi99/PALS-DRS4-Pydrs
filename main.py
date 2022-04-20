@@ -116,37 +116,50 @@ def maxvalue(tempdata):
     return maxima
 
 
-#This scales the x-axis to display the Energy in keV
-#I recommend calibrating your board and adjusting the values in this function 
-#STILL UNDER CONSTRUCTION!
-def scaleaxis(x): 
-    channel = x
-    maxenergy = []
-    for i in range(len(channel)):
-        
-        energy = (434/7563)* channel[i] - 5501.59
-        maxenergy.append(energy)
-    return maxenergy
+#finds the peaks of the historam so you can match it with te spectrum
+#of your source and calculate the conversion to keV
 
-
-#Finding the peaks of the histogram, This will be used to scale the x-axis
-#UNDER CONSTRUCTION!!!
-def peakposition(x): 
-    peaks, _ = find_peaks(x, prominence=10)
+def findpeaks(maxima): 
     
-    plt.plot(peaks, x[peaks], "xr"); plt.plot(x)
+    plt.xlabel("Energy")
+    plt.ylabel("Counts")
+    plt.hist(maxima[::-1],bins=300)
+    ax = plt.gca()
+    p = ax.patches
     plt.yscale('log')
-    plt.show()
+    
+    energy = [patch.get_xy() for patch in p]
+    for i in range(len(energy)):
+        temp_tuple = energy[i]
+        temp_float = temp_tuple[0]
+        
+        energy[i] = temp_float
+        
+    arr_energy = np.array(energy)    
+    counts = [patch.get_height() for patch in p]
+    arr_counts = np.array(counts)
+    hist_data = {"energy": arr_energy, "counts": arr_counts}
+
+    #plt.show()
+    
+    peaks, _ = find_peaks(arr_counts, prominence=40)
+    plt.plot(arr_energy[peaks], arr_counts[peaks], "xr"); plt.hist(maxima[::-1],bins=300)
+    plt.yscale('log')
+    #plt.show()
+    
     return peaks
+
 
 
 #Plots the data into a histogram with the option to save the plot and
 #data of the histogram
-def histogram(maxima, bins, title, xtitle):
+def histogram(maxima, bins, title):
     
     #step 2: saving the histogram data
     save = input("Do you want to save the plot and data of the histogram? "
                  + "'yes' or 'no': ")
+    filepathpng = 0;
+    filepathtxt = 0;
     
     if save == 'yes':
         
@@ -158,22 +171,38 @@ def histogram(maxima, bins, title, xtitle):
         filepathpng = os.sep.join([dir_input, pngfile])
         
         textfile = filename + '.txt'
-        filepathtext = "{}{}{}".format(dir_input, os.sep, textfile)
-        filepathtext = os.sep.join([dir_input, textfile])
+        filepathtxt = "{}{}{}".format(dir_input, os.sep, textfile)
+        filepathtxt = os.sep.join([dir_input, textfile])
+    
+    #creating histogram
+    plt.title(title)
+    plt.xlabel("Energy [keV]")
+    plt.ylabel("Counts")
+    #plt.hist(maxima[::-1],bins=bins)
+    plt.hist(maxima,bins=bins)
+
+    ax = plt.gca()
+    p = ax.patches
+    plt.yscale('log')
+    
+    #getting data to save
+    energy = [patch.get_xy() for patch in p]
+    for i in range(len(energy)):
+        temp_tuple = energy[i]
+        temp_float = temp_tuple[0]
         
-        #Plotting the histogram
-        plt.title(title)
-        plt.xlabel(xtitle)
-        plt.ylabel("Counts")
-        plt.hist(maxima[::-1],bins=bins)
+        energy[i] = temp_float
         
-        ax = plt.gca()
-        p = ax.patches
-        energy = [patch.get_xy() for patch in p]
-        counts = [patch.get_height() for patch in p]    
-        hist_data = {"energy": energy, "counts": counts}
-        
-        plt.yscale('log')
+    arr_energy = np.array(energy)    
+    counts = [patch.get_height() for patch in p]
+    arr_counts = np.array(counts)    
+
+
+    #converting x-axis
+    
+    hist_data = {"energy": arr_energy, "counts": arr_counts}
+    
+    if save == 'yes':  
         
         #Saving the Plot as a .png
         plt.savefig(filepathpng)
@@ -181,19 +210,12 @@ def histogram(maxima, bins, title, xtitle):
         
         
         #Saving the histogram data to a text file       
-        tupleenergy = hist_data["energy"]
-        energy =[]
-        
-        for i in range(len(tupleenergy)):
-            energy.append(tupleenergy[i][0])
-            
-        hist_data["energy"] = energy
         width = 20
         delim='\t'
         column1 = '-'
         order = ['energy', 'counts']
         
-        with open( filepathtext, 'w' ) as f:
+        with open( filepathtxt, 'w' ) as f:
             writer, w = csv.writer(f, delimiter=delim), []
             head = ['{!s:{}}'.format(column1,width)]
             
@@ -202,7 +224,7 @@ def histogram(maxima, bins, title, xtitle):
                 
             writer.writerow(head)            
             
-            for i in range(len(tupleenergy)):
+            for i in range(len(arr_energy)):
                 row = ['{!s:{}}'.format(i,width)]
                 for k in order:
                     temp = hist_data[k][i]
@@ -212,20 +234,8 @@ def histogram(maxima, bins, title, xtitle):
         
         print("your data has been saved! ")
         
-    else:
-        plt.title(title)
-        plt.xlabel(xtitle)
-        plt.ylabel("Counts")
-        plt.hist(maxima[::-1],bins=bins)
-        
-        ax = plt.gca()
-        p = ax.patches
-        energy = [patch.get_xy() for patch in p]
-        counts = [patch.get_height() for patch in p]    
-        hist_data = {"energy": energy, "counts": counts}
-        
-        plt.yscale('log')
-        plt.show()
+    else: plt.show();
+
         
         
     return hist_data
@@ -239,8 +249,8 @@ def save_data(data, maxima, channel):
     dir_input = input("Enter the desired directory for your file: ")
     filename = input("enter a filename (without .*)")    
     textfile = filename + '.txt'
-    filepathtext = "{}{}{}".format(dir_input, os.sep, textfile)
-    filepathtext = os.sep.join([dir_input, textfile])
+    filepathtxt = "{}{}{}".format(dir_input, os.sep, textfile)
+    filepathtxt = os.sep.join([dir_input, textfile])
     
     
     data = data[channel]
@@ -263,7 +273,7 @@ def save_data(data, maxima, channel):
     column1 = channel
     order = ['maxima', 'identity', 'timestamp']
     
-    with open( filepathtext, 'w' ) as f:
+    with open( filepathtxt, 'w' ) as f:
         writer, w = csv.writer(f, delimiter=delim), []
         head = ['{!s:{}}'.format(column1,width)]
         
@@ -298,7 +308,7 @@ def save_data(data, maxima, channel):
 #Make sure to comment out this line if you wish to input your filepath
 #through the console. The following line will otherwise overwrite the
 #input filepath: NOTE: use / as seperators
-filepath = 'C:/Users/vicky/Desktop/PALS-DRS4-Pydrs-main/tests/2channels.bin'
+filepath = 'C:/Users/Vicky/OneDrive/Desktop/pydrs4-master/tests/2ch100k.bin'
 
 #the filepath will be printed so you can check that the registered filepath
 #is correct
@@ -327,6 +337,21 @@ with DRS4BinaryFile(filepath) as f:
         print("You have selected channel: ", channel)
         temp_data = data[channel]
         
+        #scale axis
+        baseline = 34000
+        data_corr = -np.array(temp_data['data'])+2*baseline
+        maxcounts = maxvalue(data_corr)
+        
+        #use the findpeaks function once for the peaks to calculate
+        #the parameters for the conversion to keV. Once the
+        #conversion is defined exclude the function from the running code
+        #peaks = findpeaks(maxcounts)
+        
+        
+        #conversion parameters from channels to keV
+        slope = 759/13538.32
+        intercept = -5634.612
+        maxcounts_keV = [(maxcounts[i]*slope + intercept) for i in range(len(maxcounts))]
         x=1
         while x == 1:
             operations = ['histogram', 'save data', 'select channel', 'finish']
@@ -345,21 +370,13 @@ with DRS4BinaryFile(filepath) as f:
                 bins = int(input("choose the number of binaries: "))
 
                 
-                baseline = 34000
-                
-                data_corr = -np.array(temp_data['data'])+2*baseline
-                maxcounts = maxvalue(data_corr)
-                
-                hist_data = histogram(maxcounts, bins, title, 'channel')
+                hist_data = histogram(maxcounts_keV, bins, title)
                 
 
                     
             elif command == 'save data':
                 print('you chose save_data')
-                baseline = 34000
-                data_corr = -np.array(temp_data['data'])+2*baseline
-                maxcounts = maxvalue(data_corr)
-                save_data(data, maxcounts, channel)
+                save_data(data, maxcounts_keV, channel)
                 
             elif command == 'finish':
                 print('the program will be closed')   
