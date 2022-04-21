@@ -13,8 +13,29 @@ import sys
 import os
 import csv
 
-def extractdata(f, channel_list):    
+def getboardinfo(f):
+    print(f.board_ids)
+    print(f.channels)
+    boardID_list = f.board_ids
+    boardID = boardID_list[0]
+    totalBoards = len(boardID_list)
+    boardID = boardID_list[0]
+    board_channels = f.channels[boardID]
+    
+    print("You have connected ", totalBoards, 
+          "Board(s) with Channel(s)", board_channels )
+    return board_channels
+    
+
+def extractdata(f, board_channels):    
     i = 1
+    
+    #DOPPLUNG!!!
+    boardID_list = f.board_ids
+    boardID = boardID_list[0]
+    board_channels = f.channels[boardID]
+    
+    
     tempdata_list1 = []  
     tempdata_list2 = [] 
     tempdata_list3 = [] 
@@ -47,7 +68,7 @@ def extractdata(f, channel_list):
         else:
             #Getting the Datapoint of all 4 channels for the current line of
             #the binary file
-            for i, channel in enumerate(channel_list):
+            for i, channel in enumerate(board_channels):
                 if channel == 1:
                     tempdata_list1.append(event.adc_data[boardID][channel]) 
                     list_length = len(tempdata_list1)
@@ -109,21 +130,32 @@ def extractdata(f, channel_list):
 
 #This function finds the maximum of the 1024 cells of each data point
 def maxvalue(tempdata):
-    maxima = []
-    for i in range(len(tempdata)):
-        maxvalue = np.amax(tempdata[i])
-        maxima.append(maxvalue)
-    return maxima
+    baseline = 34000
+    data_corr = -np.array(temp_data['data'])+2*baseline
+    maxcounts = []
+    for i in range(len(data_corr)):
+        maxvalue = np.amax(data_corr[i])
+        maxcounts.append(maxvalue)
+        
+    maxcounts_keV = keVconversion(maxcounts)
+    return maxcounts
 
-
+def keVconversion (maxcounts):
+    slope = 759/13538.32
+    intercept = -5634.612
+    maxcounts_keV = [(maxcounts[i]*slope + intercept) 
+                     for i in range(len(maxcounts))]
+    
+    return maxcounts_keV
+    
 #finds the peaks of the historam so you can match it with te spectrum
 #of your source and calculate the conversion to keV
 
-def findpeaks(maxima): 
+def findpeaks(maxcounts): 
     
     plt.xlabel("Energy")
     plt.ylabel("Counts")
-    plt.hist(maxima[::-1],bins=300)
+    plt.hist(maxcounts[::-1],bins=300)
     ax = plt.gca()
     p = ax.patches
     plt.yscale('log')
@@ -143,49 +175,84 @@ def findpeaks(maxima):
     #plt.show()
     
     peaks, _ = find_peaks(arr_counts, prominence=40)
-    plt.plot(arr_energy[peaks], arr_counts[peaks], "xr"); plt.hist(maxima[::-1],bins=300)
+    plt.plot(arr_energy[peaks], arr_counts[peaks], "xr")
+    plt.hist(maxcounts[::-1],bins=300)
     plt.yscale('log')
     #plt.show()
     
     return peaks
 
+def histogramtotxt(hist_data, filepath):
+    width = 20
+    delim='\t'
+    column1 = '-'
+    order = ['energy', 'counts']
+    len_data = len(hist_data["counts"])
+    with open( filepath, 'w' ) as f:
+        writer, w = csv.writer(f, delimiter=delim), []
+        head = ['{!s:{}}'.format(column1,width)]
+        
+        for i in order:    
+            head.append('{!s:{}}'.format(i,width))
+            
+        writer.writerow(head)            
+        
+        for i in range(len_data):
+            row = ['{!s:{}}'.format(i,width)]
+            for k in order:
+                temp = hist_data[k][i]
+                row.append('{!s:{}}'.format(temp,width))
+    
+            writer.writerow(row)
+    
+    print("your data has been saved! ")
+    
+ 
+def getfilepath():
+    #Asks filepath from user
+    dir_input = input("Enter the desired directory for your file: ")
+    filename = input("enter a filename (without .*) ")
+    pngfile = filename + '.png'
+    path_png = "{}{}{}".format(dir_input, os.sep, pngfile)
+    path_png = os.sep.join([dir_input, pngfile])
+    
+    textfile = filename + '.txt'
+    path_txt = "{}{}{}".format(dir_input, os.sep, textfile)
+    path_txt = os.sep.join([dir_input, textfile])
+    
+    return(path_png, path_txt)
 
 
 #Plots the data into a histogram with the option to save the plot and
 #data of the histogram
-def histogram(maxima, bins, title):
+
+def histogram(maxcounts):
     
-    #step 2: saving the histogram data
+    title = input("choose a title for your plot: ")
+    bins = int(input("choose the number of binaries: "))
+    
     save = input("Do you want to save the plot and data of the histogram? "
                  + "'yes' or 'no': ")
-    filepathpng = 0;
-    filepathtxt = 0;
+
     
     if save == 'yes':
+        filepath = getfilepath()
+        path_png = filepath[0]
+        path_txt = filepath[1]
         
-        #Asks filepath from user
-        dir_input = input("Enter the desired directory for your file: ")
-        filename = input("enter a filename (without .*) ")
-        pngfile = filename + '.png'
-        filepathpng = "{}{}{}".format(dir_input, os.sep, pngfile)
-        filepathpng = os.sep.join([dir_input, pngfile])
-        
-        textfile = filename + '.txt'
-        filepathtxt = "{}{}{}".format(dir_input, os.sep, textfile)
-        filepathtxt = os.sep.join([dir_input, textfile])
     
     #creating histogram
     plt.title(title)
     plt.xlabel("Energy [keV]")
     plt.ylabel("Counts")
-    #plt.hist(maxima[::-1],bins=bins)
-    plt.hist(maxima,bins=bins)
+    #plt.hist(maxcounts[::-1],bins=bins)
+    plt.hist(maxcounts,bins=bins)
 
     ax = plt.gca()
     p = ax.patches
     plt.yscale('log')
     
-    #getting data to save
+    #extracting data from histogram
     energy = [patch.get_xy() for patch in p]
     for i in range(len(energy)):
         temp_tuple = energy[i]
@@ -196,43 +263,18 @@ def histogram(maxima, bins, title):
     arr_energy = np.array(energy)    
     counts = [patch.get_height() for patch in p]
     arr_counts = np.array(counts)    
-
-
-    #converting x-axis
     
     hist_data = {"energy": arr_energy, "counts": arr_counts}
     
     if save == 'yes':  
         
         #Saving the Plot as a .png
-        plt.savefig(filepathpng)
+        plt.savefig(path_png)
         plt.show()
         
-        
+    
         #Saving the histogram data to a text file       
-        width = 20
-        delim='\t'
-        column1 = '-'
-        order = ['energy', 'counts']
-        
-        with open( filepathtxt, 'w' ) as f:
-            writer, w = csv.writer(f, delimiter=delim), []
-            head = ['{!s:{}}'.format(column1,width)]
-            
-            for i in order:    
-                head.append('{!s:{}}'.format(i,width))
-                
-            writer.writerow(head)            
-            
-            for i in range(len(arr_energy)):
-                row = ['{!s:{}}'.format(i,width)]
-                for k in order:
-                    temp = hist_data[k][i]
-                    row.append('{!s:{}}'.format(temp,width))
-        
-                writer.writerow(row)
-        
-        print("your data has been saved! ")
+        histogramtotxt(hist_data, path_txt)
         
     else: plt.show();
 
@@ -244,25 +286,26 @@ def histogram(maxima, bins, title):
 #Saving the data of one channel into a text file
 #instead of saving all 1024 count of each data point only the maximum will 
 #be saved for each data point
-def save_data(data, maxima, channel):
+
+def save_data(data, maxcounts, channel):
     
     dir_input = input("Enter the desired directory for your file: ")
     filename = input("enter a filename (without .*)")    
     textfile = filename + '.txt'
-    filepathtxt = "{}{}{}".format(dir_input, os.sep, textfile)
-    filepathtxt = os.sep.join([dir_input, textfile])
+    path_txt = "{}{}{}".format(dir_input, os.sep, textfile)
+    path_txt = os.sep.join([dir_input, textfile])
     
     
     data = data[channel]
     
     temp =  {
-        "maxima":
+        "maxcounts":
         "identity"
         "timestamp"
         }
-    data["data"] = maxima
+    data["data"] = maxcounts
     
-    temp["maxima"] = data["data"]
+    temp["maxcounts"] = data["data"]
     temp["identity"] = data["identity"]
     temp["timestamp"] = data["time"]
     
@@ -271,9 +314,9 @@ def save_data(data, maxima, channel):
     width = 20
     delim='\t'
     column1 = channel
-    order = ['maxima', 'identity', 'timestamp']
+    order = ['maxcounts', 'identity', 'timestamp']
     
-    with open( filepathtxt, 'w' ) as f:
+    with open( path_txt, 'w' ) as f:
         writer, w = csv.writer(f, delimiter=delim), []
         head = ['{!s:{}}'.format(column1,width)]
         
@@ -314,44 +357,30 @@ filepath = 'C:/Users/Vicky/OneDrive/Desktop/pydrs4-master/tests/2ch100k.bin'
 #is correct
 print(filepath)
 
+
+
+
+
 ##############################################################################
 #Opening the file
 with DRS4BinaryFile(filepath) as f:
     
-    print(f.board_ids)
-    print(f.channels)
-    boardID_list = f.board_ids
-    boardID = boardID_list[0]
-    totalBoards = len(boardID_list)
-    boardID = boardID_list[0]
-    boardCH = f.channels[boardID]
-    data = extractdata(f, boardCH) 
-    i = 1
+    getboardinfo(f)
+    data = extractdata(f)   
     
+    i = 1
     while i == 1:
-        print("You have connected ", totalBoards, 
-              "Board(s) with Channel(s)", boardCH )
-
-        ch_opt = []
-        channel = input("Choose between 'ch1','ch2','ch3','ch4': ")
-        print("You have selected channel: ", channel)
-        temp_data = data[channel]
-        
-        #scale axis
-        baseline = 34000
-        data_corr = -np.array(temp_data['data'])+2*baseline
-        maxcounts = maxvalue(data_corr)
+        selected_channel = input("Choose between 'ch1','ch2','ch3','ch4': ")
+        print("You have selected channel: ", selected_channel)
+        temp_data = data[selected_channel]
+        maxcounts = maxvalue(temp_data)
         
         #use the findpeaks function once for the peaks to calculate
         #the parameters for the conversion to keV. Once the
         #conversion is defined exclude the function from the running code
         #peaks = findpeaks(maxcounts)
         
-        
-        #conversion parameters from channels to keV
-        slope = 759/13538.32
-        intercept = -5634.612
-        maxcounts_keV = [(maxcounts[i]*slope + intercept) for i in range(len(maxcounts))]
+
         x=1
         while x == 1:
             operations = ['histogram', 'save data', 'select channel', 'finish']
@@ -366,17 +395,12 @@ with DRS4BinaryFile(filepath) as f:
             
             elif command == 'histogram':
                 print('you chose histogram')
-                title = input("choose a title for your plot: ")
-                bins = int(input("choose the number of binaries: "))
-
+               
+                hist_data = histogram(maxcounts)
                 
-                hist_data = histogram(maxcounts_keV, bins, title)
-                
-
-                    
             elif command == 'save data':
                 print('you chose save_data')
-                save_data(data, maxcounts_keV, channel)
+                save_data(data, maxcounts, selected_channel)
                 
             elif command == 'finish':
                 print('the program will be closed')   
