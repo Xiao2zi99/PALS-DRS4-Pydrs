@@ -13,28 +13,37 @@ import sys
 import os
 import csv
 
-def getboardinfo(f):
-    print(f.board_ids)
-    print(f.channels)
-    boardID_list = f.board_ids
-    boardID = boardID_list[0]
-    totalBoards = len(boardID_list)
-    boardID = boardID_list[0]
-    board_channels = f.channels[boardID]
-    
-    print("You have connected ", totalBoards, 
+def welcomemsg(f):
+    print("Welcome!")
+    totalboards = f.num_boards
+    board_channels = getboardchannel(f)
+    print("You have connected ", totalboards, 
           "Board(s) with Channel(s)", board_channels )
+    return None
+
+
+
+
+    
+
+def getboardID(f):
+    boardID_list = f.board_ids
+    
+    ###this is only valid for the use of 1 Board only
+    boardID = boardID_list[0]
+    return boardID
+
+
+def getboardchannel(f):
+    boardID = getboardID(f)
+    board_channels = f.channels[boardID]
     return board_channels
     
 
-def extractdata(f, board_channels):    
+def extractdata(f):    
     i = 1
-    
-    #DOPPLUNG!!!
-    boardID_list = f.board_ids
-    boardID = boardID_list[0]
+    boardID = getboardID(f)
     board_channels = f.channels[boardID]
-    
     
     tempdata_list1 = []  
     tempdata_list2 = [] 
@@ -129,16 +138,17 @@ def extractdata(f, board_channels):
             
 
 #This function finds the maximum of the 1024 cells of each data point
-def maxvalue(tempdata):
+def maxvalue(temp_data):
     baseline = 34000
-    data_corr = -np.array(temp_data['data'])+2*baseline
+    temp_data_int = temp_data['data']
+    data_corr = -np.array(temp_data_int)+2*baseline
     maxcounts = []
     for i in range(len(data_corr)):
         maxvalue = np.amax(data_corr[i])
         maxcounts.append(maxvalue)
         
     maxcounts_keV = keVconversion(maxcounts)
-    return maxcounts
+    return maxcounts_keV
 
 def keVconversion (maxcounts):
     slope = 759/13538.32
@@ -208,26 +218,12 @@ def histogramtotxt(hist_data, filepath):
     print("your data has been saved! ")
     
  
-def getfilepath():
-    #Asks filepath from user
-    dir_input = input("Enter the desired directory for your file: ")
-    filename = input("enter a filename (without .*) ")
-    pngfile = filename + '.png'
-    path_png = "{}{}{}".format(dir_input, os.sep, pngfile)
-    path_png = os.sep.join([dir_input, pngfile])
-    
-    textfile = filename + '.txt'
-    path_txt = "{}{}{}".format(dir_input, os.sep, textfile)
-    path_txt = os.sep.join([dir_input, textfile])
-    
-    return(path_png, path_txt)
-
 
 #Plots the data into a histogram with the option to save the plot and
 #data of the histogram
 
-def histogram(maxcounts):
-    
+def histogram(data, selected_channel):
+    maxcounts = getchanneldata(data, selected_channel)
     title = input("choose a title for your plot: ")
     bins = int(input("choose the number of binaries: "))
     
@@ -237,8 +233,7 @@ def histogram(maxcounts):
     
     if save == 'yes':
         filepath = getfilepath()
-        path_png = filepath[0]
-        path_txt = filepath[1]
+
         
     
     #creating histogram
@@ -269,11 +264,13 @@ def histogram(maxcounts):
     if save == 'yes':  
         
         #Saving the Plot as a .png
+        path_png = filepath + ".png"
         plt.savefig(path_png)
         plt.show()
         
     
-        #Saving the histogram data to a text file       
+        #Saving the histogram data to a text file  
+        path_txt = filepath + ".txt"
         histogramtotxt(hist_data, path_txt)
         
     else: plt.show();
@@ -287,16 +284,14 @@ def histogram(maxcounts):
 #instead of saving all 1024 count of each data point only the maximum will 
 #be saved for each data point
 
-def save_data(data, maxcounts, channel):
+def save_data(data, selected_channel):
     
-    dir_input = input("Enter the desired directory for your file: ")
-    filename = input("enter a filename (without .*)")    
-    textfile = filename + '.txt'
-    path_txt = "{}{}{}".format(dir_input, os.sep, textfile)
-    path_txt = os.sep.join([dir_input, textfile])
+    filepath = getfilepath()  
+    path_txt = filepath + ".txt"
     
+    maxcounts = getchanneldata(data, selected_channel)
     
-    data = data[channel]
+    data = data[selected_channel]
     
     temp =  {
         "maxcounts":
@@ -313,7 +308,7 @@ def save_data(data, maxcounts, channel):
     
     width = 20
     delim='\t'
-    column1 = channel
+    column1 = selected_channel
     order = ['maxcounts', 'identity', 'timestamp']
     
     with open( path_txt, 'w' ) as f:
@@ -334,6 +329,55 @@ def save_data(data, maxcounts, channel):
             writer.writerow(row)
     
     print("your data has been saved! ")
+    return None
+
+
+def select_channel():
+    selected_channel = input("Choose between 'ch1','ch2','ch3','ch4': ")
+    print("You have selected channel: ", selected_channel)
+    return selected_channel
+
+def getchanneldata(data, selected_channel):
+    temp_data = data[selected_channel]
+    maxcounts = maxvalue(temp_data)
+    return maxcounts
+
+def select_operation():
+    selected_channel = select_channel()
+    x=1
+    while x == 1:
+        operations = ['histogram', 'save data', 'select channel', 'finish']
+        print("Caution: If next_channel or finish are selected current "
+              + "data can be overwritten and data might be lost!")
+        print("Available operations: ", operations)
+        command = input("choose an operation: ")
+        
+        if command == 'select channel':
+            print('you chose select channel')
+            select_channel()
+            break     
+        
+        elif command == 'histogram':
+            print('you chose histogram')
+            histogram(data, selected_channel)
+            
+        elif command == 'save data':
+            print('you chose save_data')
+            save_data(data, selected_channel)
+            
+        elif command == 'finish':
+            print('the program will be closed')   
+            break
+            
+        else:
+            print("invalid syntax")
+
+def getfilepath(): 
+    dir_input = input("Enter the directory of your File: ")
+    filename = input("Enter the name of the file (with .*): ")
+    filepath = "{}{}{}".format(dir_input, os.sep, filename)
+    filepath = os.sep.join([dir_input, filename])      
+    return filepath
     
 ##############################################################################    
 #End of function definition
@@ -341,77 +385,32 @@ def save_data(data, maxcounts, channel):
 
 #If getting the directory through console input is desired, uncomment the
 #following lines. Note: This has only been tested on windows
-# dir_input = input("Enter the directory of your File: ")
-# filename = input("Enter the name of the file (with .bin): ")
-# filepath = "{}{}{}".format(dir_input, os.sep, filename)
-# filepath = os.sep.join([dir_input, filename])
-
+#filepath = getfilepath()
 
 #Alternatively you can directly input your filepath in the following line
 #Make sure to comment out this line if you wish to input your filepath
 #through the console. The following line will otherwise overwrite the
 #input filepath: NOTE: use / as seperators
-filepath = 'C:/Users/Vicky/OneDrive/Desktop/pydrs4-master/tests/2ch100k.bin'
+filepath = 'C:/Users/Vicky/Desktop/PALS-DRS4-Pydrs-main/tests/2ch100k.bin'
 
 #the filepath will be printed so you can check that the registered filepath
 #is correct
 print(filepath)
 
-
-
-
-
 ##############################################################################
 #Opening the file
 with DRS4BinaryFile(filepath) as f:
     
-    getboardinfo(f)
-    data = extractdata(f)   
+
     
-    i = 1
-    while i == 1:
-        selected_channel = input("Choose between 'ch1','ch2','ch3','ch4': ")
-        print("You have selected channel: ", selected_channel)
-        temp_data = data[selected_channel]
-        maxcounts = maxvalue(temp_data)
-        
-        #use the findpeaks function once for the peaks to calculate
-        #the parameters for the conversion to keV. Once the
-        #conversion is defined exclude the function from the running code
-        #peaks = findpeaks(maxcounts)
+    
+    # welcomemsg(f)
+     data = extractdata(f)   
         
 
-        x=1
-        while x == 1:
-            operations = ['histogram', 'save data', 'select channel', 'finish']
-            print("Caution: If next_channel or finish are selected current "
-                  + "data can be overwritten and data might be lost!")
-            print("Available operations: ", operations)
-            command = input("choose an operation: ")
-            
-            if command == 'select channel':
-                print('you chose select channel')   
-                break     
-            
-            elif command == 'histogram':
-                print('you chose histogram')
-               
-                hist_data = histogram(maxcounts)
-                
-            elif command == 'save data':
-                print('you chose save_data')
-                save_data(data, maxcounts, selected_channel)
-                
-            elif command == 'finish':
-                print('the program will be closed')   
-                break
-                
-            else:
-                print("invalid syntax")
-
-                    
-        if command == 'finish':
-            break       
+        
+    # select_operation()
+    
     
     
 
