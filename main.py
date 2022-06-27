@@ -20,10 +20,6 @@ def welcomemsg(f):
     print("You have connected ", totalboards, 
           "Board(s) with Channel(s)", board_channels )
     return None
-
-
-
-
     
 
 def getboardID(f):
@@ -60,6 +56,16 @@ def extractdata(f):
     data_time3 = []
     data_time4 = []
     
+    tcell1 = []
+    tcell2 = []
+    tcell3 = []
+    tcell4 = []
+    
+    range1 = []
+    range2 = []
+    range3 = []
+    range4 = []
+    
     data = []
     data_ch1 = []   
     data_ch2 = [] 
@@ -70,6 +76,11 @@ def extractdata(f):
         #Iterates through the lines of the binary file, Adds "stop" as default
         #value to stop the iteration at the end of the binary file
         event = next(f, "stop")
+
+
+        
+        
+        
        
         if event == "stop":
             break
@@ -77,6 +88,13 @@ def extractdata(f):
         else:
             #Getting the Datapoint of all 4 channels for the current line of
             #the binary file
+            
+            """
+            scalers don't work but for now are also not relevant
+            """
+            
+            #scalers = event.scalers[boardID]
+            
             for i, channel in enumerate(board_channels):
                 if channel == 1:
                     tempdata_list1.append(event.adc_data[boardID][channel]) 
@@ -84,10 +102,16 @@ def extractdata(f):
                     data_ID1.append(event.event_id)
                     data_time1.append(event.timestamp)                        
                     
+                    #scaler1 = scalers[channel]
+                    tcell1.append(event.trigger_cells[boardID])
+                    range1.append(event.range_center)
+                    
                     data_ch1 = {
                         "data": tempdata_list1, 
                         "identity": data_ID1, 
-                        "time": data_time1
+                        "time": data_time1,
+                         "range center": range1,
+                         "triggercell": tcell1
                         } 
                     
                 elif channel == 2:
@@ -96,35 +120,55 @@ def extractdata(f):
                     data_ID2.append(event.event_id)
                     data_time2.append(event.timestamp)                        
                     
+                    #scaler2 = scalers[channel]
+                    tcell2.append(event.trigger_cells[boardID])
+                    range2.append(event.range_center)
+                    
                     data_ch2 = {
                         "data": tempdata_list2, 
                         "identity": data_ID2, 
-                        "time": data_time2
+                        "time": data_time2,
+                        "range center": range2,
+                        "triggercell": tcell2
                         } 
+                """
+                Uncomment the followin lines if more than  2 channels are used
+                """
+                # elif channel == 3:
+                #     tempdata_list3.append(event.adc_data[boardID][channel]) 
+                #     list_length = len(tempdata_list3)
+                #     data_ID3.append(event.event_id)
+                #     data_time3.append(event.timestamp)  
+
+                #     tcell3  = event.trigger_cells[boardID]
+                #     range3 = event.range_center   
                     
-                elif channel == 3:
-                    tempdata_list3.append(event.adc_data[boardID][channel]) 
-                    list_length = len(tempdata_list3)
-                    data_ID3.append(event.event_id)
-                    data_time3.append(event.timestamp)                        
+                #     data_ch3 = {
+                #         "data": tempdata_list3, 
+                #         "identity": data_ID3, 
+                #         "time": data_time3,
+                #         "range center": range3,
+                #         "scaler": scaler3,
+                #         "triggercell": tcell3
+                #         }                 
                     
-                    data_ch3 = {
-                        "data": tempdata_list3, 
-                        "identity": data_ID3, 
-                        "time": data_time3
-                        }                 
+                # elif channel == 4:
+                #     tempdata_list4.append(event.adc_data[boardID][channel])
+                #     list_length = len(tempdata_list4)
+                #     data_ID4.append(event.event_id)
+                #     data_time4.append(event.timestamp) 
                     
-                elif channel == 4:
-                    tempdata_list4.append(event.adc_data[boardID][channel])
-                    list_length = len(tempdata_list4)
-                    data_ID4.append(event.event_id)
-                    data_time4.append(event.timestamp)                        
+                #     tcell4  = event.trigger_cells[boardID]
+                #     range4 = event.range_center                        
                     
-                    data_ch4 = {
-                        "data": tempdata_list4, 
-                        "identity": data_ID4, 
-                        "time": data_time4
-                        }                 
+                #     data_ch4 = {
+                #         "data": tempdata_list4, 
+                #         "identity": data_ID4, 
+                #         "time": data_time4,
+                #         "range center": range4,
+                #         "scaler": scaler4,
+                #         "triggercell": tcell4
+                #         }                 
                     
             #Saving the data of all 4 channels into one dictionary                
             data = {
@@ -137,18 +181,99 @@ def extractdata(f):
     return data
             
 
-#This function finds the maximum of the 1024 cells of each data point
-def maxvalue(temp_data):
+def getcelltime(data):
+    
+    
+    ref_maxima = maxvalue(data, 'ch1')
+    
+    #getting the index of teh maxima for each datapoint
+    
+    n_maxima_ch1 = maxvalue_index(data, 'ch1')
+    n_maxima_ch2 = maxvalue_index(data, 'ch2')
+    
+    arr_tcell = data['ch1']
+    arr_tcell = arr_tcell['triggercell']
+
+    
+    timewidths = f.time_widths
+    
+    t_binwidth = timewidths[3059]
+    t_binwidth1 = t_binwidth[1]
+    t_binwidth1 = t_binwidth1[0]
+    
+    t_binwidth2 = t_binwidth[2]
+    t_binwidth2 = t_binwidth2[0]
+    
+    #value correlates to time in nanoseconds
+    arr_t_ch_i1 = []
+    arr_t_ch_i2 = []
+    
+    for n,maximum in enumerate(n_maxima_ch1):
+        
+        maximum = 0
+        j = 0
+        t_ch_i1 = 0
+        t_ch_i2 = 0
+        
+        while j < n_maxima_ch1[n]:
+            
+            t_ch_i1 =  t_ch_i1 + t_binwidth1 * ((j + arr_tcell[n])%1024)
+            j += 1
+            
+        k = 0
+        while k < n_maxima_ch2[n]:
+            
+            t_ch_i2 =  t_ch_i2 + t_binwidth2 * ((k + arr_tcell[n])%1024)
+            k += 1
+            
+        arr_t_ch_i1.append(t_ch_i1)
+        arr_t_ch_i2.append(t_ch_i2)
+    #     n = 0
+        
+    pass
+    
+    
+    #channel 1 will be used as the reference channel
+    #t_max_reference = 
+    
+    #for count, maxim
+    
+    
+
+def get_temp_data(data, selected_channel):
+    temp_data = data[selected_channel]
+    
     baseline = 34000
     temp_data_int = temp_data['data']
     data_corr = -np.array(temp_data_int)+2*baseline
+    
+    return data_corr
+
+#This function finds the maximum of the 1024 cells of each data point
+def maxvalue(data, selected_channel):
+    
+    temp_data = get_temp_data(data, selected_channel)
+
     maxcounts = []
-    for i in range(len(data_corr)):
-        maxvalue = np.amax(data_corr[i])
+    for i in range(len(temp_data)):
+        maxvalue = np.amax(temp_data[i])
         maxcounts.append(maxvalue)
         
-    maxcounts_keV = keVconversion(maxcounts)
-    return maxcounts_keV
+    
+    return maxcounts
+
+def maxvalue_index(data, selected_channel):
+    
+    temp_data = get_temp_data(data, selected_channel)
+    
+    index_maxima = []
+    
+    for i, temp_index in enumerate(temp_data):
+        temp_index = np.where(temp_data[i] == np.amax(temp_data[i]))
+        temp_index = temp_index[0]
+        index_maxima.append(temp_index[0])
+        
+    return index_maxima
 
 def keVconversion (maxcounts):
     slope = 759/13538.32
@@ -223,7 +348,8 @@ def histogramtotxt(hist_data, filepath):
 #data of the histogram
 
 def histogram(data, selected_channel):
-    maxcounts = getchanneldata(data, selected_channel)
+    maxcounts = maxvalue(data, selected_channel)
+    maxcounts_keV = keVconversion(maxcounts)
     title = input("choose a title for your plot: ")
     bins = int(input("choose the number of binaries: "))
     
@@ -240,8 +366,8 @@ def histogram(data, selected_channel):
     plt.title(title)
     plt.xlabel("Energy [keV]")
     plt.ylabel("Counts")
-    #plt.hist(maxcounts[::-1],bins=bins)
-    plt.hist(maxcounts,bins=bins)
+    #plt.hist(maxcounts_keV[::-1],bins=bins)
+    plt.hist(maxcounts_keV,bins=bins)
 
     ax = plt.gca()
     p = ax.patches
@@ -289,8 +415,8 @@ def save_data(data, selected_channel):
     filepath = getfilepath()  
     path_txt = filepath + ".txt"
     
-    maxcounts = getchanneldata(data, selected_channel)
-    
+    maxcounts = maxvalue(data, selected_channel)
+    maxcounts_keV = keVconversion(maxcounts)
     data = data[selected_channel]
     
     temp =  {
@@ -298,7 +424,7 @@ def save_data(data, selected_channel):
         "identity"
         "timestamp"
         }
-    data["data"] = maxcounts
+    data["data"] = maxcounts_keV
     
     temp["maxcounts"] = data["data"]
     temp["identity"] = data["identity"]
@@ -333,14 +459,17 @@ def save_data(data, selected_channel):
 
 
 def select_channel():
+
     selected_channel = input("Choose between 'ch1','ch2','ch3','ch4': ")
     print("You have selected channel: ", selected_channel)
-    return selected_channel
-
-def getchanneldata(data, selected_channel):
-    temp_data = data[selected_channel]
-    maxcounts = maxvalue(temp_data)
-    return maxcounts
+    
+    if selected_channel == 'ch1' or selected_channel == 'ch2' or selected_channel == 'ch3' or selected_channel == 'ch4':
+        return selected_channel
+    
+    else:
+        print("Invalid input. Please check your spelling!")
+        select_channel()
+        
 
 def select_operation():
     selected_channel = select_channel()
@@ -401,15 +530,27 @@ print(filepath)
 #Opening the file
 with DRS4BinaryFile(filepath) as f:
     
+    
+    peeksize = f.peek()
+    # timewidths = f.time_widths
+   
+    
+   
+ 
 
     
+    welcomemsg(f)
+    binwidth = f.time_widths
+    data = extractdata(f)   
     
-    # welcomemsg(f)
-     data = extractdata(f)   
+    
+    
+    
+    getcelltime(data)   
+  
+    
         
-
-        
-    # select_operation()
+    #select_operation()
     
     
     
